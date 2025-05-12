@@ -1,56 +1,32 @@
-// Resource group
-resource "azurerm_resource_group" "main" {
-  name     = "${var.prefix}-resources"
-  location = var.location
+resource "aws_instance" "example" {
+  ami           = "ami-0c02fb55956c7d316"  # Amazon Linux 2 AMI for us-east-1
+  instance_type = "t2.micro"
+
+  tags = {
+            Name = "ExampleInstance"
+  }
+
+
+            vpc_security_group_ids = [aws_security_group.allow_ssh.id]
 }
 
-// Virtual network
-resource "azurerm_virtual_network" "main" {
-  name                = "${var.prefix}-network"
-  address_space       = ["10.0.0.0/16"]
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
-}
 
-// Subnet
-resource "azurerm_subnet" "internal" {
-  name                 = "internal"
-  resource_group_name  = azurerm_resource_group.main.name
-  virtual_network_name = azurerm_virtual_network.main.name
-  address_prefixes     = ["10.0.2.0/24"]
-}
+resource "aws_security_group" "allow_ssh" {
+  name        = "allow_ssh"
+  description = "Allow SSH inbound traffic"
 
-// Public IP address
-resource "azurerm_public_ip" "pip" {
-  name                = "${var.prefix}-pip"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
-  allocation_method   = "Dynamic"
-}
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]  # Be cautious, opens SSH to the world
+  }
 
-// Main network interface
-resource "azurerm_network_interface" "main" {
-  name                = "${var.prefix}-nic1"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
-
-  ip_configuration {
-    name                          = "primary"
-    subnet_id                     = azurerm_subnet.internal.id
-    private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.pip.id
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }
 
-// Internal network interface
-resource "azurerm_network_interface" "internal" {
-  name                      = "${var.prefix}-nic2"
-  resource_group_name       = azurerm_resource_group.main.name
-  location                  = azurerm_resource_group.main.location
-
-  ip_configuration {
-    name                          = "internal"
-    subnet_id                     = azurerm_subnet.internal.id
-    private_ip_address_allocation = "Dynamic"
-  }
-}
